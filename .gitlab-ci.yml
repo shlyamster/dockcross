@@ -1,0 +1,30 @@
+image: docker:stable
+
+stages:
+    - build
+
+.dind:
+    variables:
+        DOCKER_TLS_CERTDIR: "/certs"
+        DOCKCROSS: dockcross
+    services:
+        - docker:dind
+    before_script:
+        - echo -n ${CI_JOB_TOKEN} | docker login -u ${CI_REGISTRY_USER} --password-stdin ${CI_REGISTRY}
+
+build:
+    extends: .dind
+    stage: build
+    variables:
+        ARMV7HF: linux-armv7hf
+    script:
+        - make ${ARMV7HF}
+        - docker tag ${DOCKCROSS}/${ARMV7HF}:latest ${CI_REGISTRY_IMAGE}/${ARMV7HF}:${CI_COMMIT_SHA}
+        - docker push ${CI_REGISTRY_IMAGE}/${ARMV7HF}:${CI_COMMIT_SHA}
+        - docker tag ${DOCKCROSS}/${ARMV7HF}:latest ${CI_REGISTRY_IMAGE}/${ARMV7HF}:${CI_COMMIT_REF_SLUG}
+        - docker push ${CI_REGISTRY_IMAGE}/${ARMV7HF}:${CI_COMMIT_REF_SLUG}
+        - >
+            if [ $CI_COMMIT_REF_SLUG == "master" ]; then
+                docker tag ${DOCKCROSS}/${ARMV7HF}:latest ${CI_REGISTRY_IMAGE}/${ARMV7HF}:latest &&
+                docker push ${CI_REGISTRY_IMAGE}/${ARMV7HF}:latest
+            fi
